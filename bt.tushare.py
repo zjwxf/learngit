@@ -1,59 +1,67 @@
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
-from datetime import datetime
-import os.path  # To manage paths
-import sys  # To find out the script name (in argv[0])
-
-# Import the backtrader platform
 import backtrader as bt
-import tushare as ts
-import pandas as pd
+from datetime import datetime
 
-if __name__ == '__main__':
 
-    pro = ts.pro_api(
-        token='0a9d3308245c51f14e45b0c6d9166ffcc4fbd13d3438222f99f675f7')
-    df = pro.daily(ts_code='000001.SZ', start_date='20110101',
-                   end_date='20210101').iloc[::-1]
-    df.to_csv('stock_data.csv', index=False)
-    
-    
-    # Create a cerebro entity
-    cerebro = bt.Cerebro()
+class TestStrategy(bt.Strategy):
 
-    # Datas are in a subfolder of the samples. Need to find where the script is
-    # because it could have been called from anywhere
-    modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-    datapath = os.path.join(modpath, 'stock_data.csv')
+    def log(self, txt, dt=None):
+        ''' Logging function for this strategy'''
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
 
-    # Create a Data Feed
-    data = bt.feeds.GenericCSVData(
-        dataname=datapath,
-        fromdate=datetime(2011, 1, 1),
-        todate=datetime(2012, 12, 31),
-        nullvalue=0.0,
-        dtformat=('%Y%m%d'),
-        datetime=1,
-        open=2,
-        high=3,
-        low=4,    
-        close=5,
-        volume=9,
-        openinterest=-1
-    )
+    def __init__(self):
+        # Keep a reference to the "close" line in the data[0] dataseries
+        self.dataclose = self.datas[0].close
 
-    # Add the Data Feed to Cerebro
-    cerebro.adddata(data)
+    def next(self):
+     if __name__ == '__main__':
+        cerebro = bt.Cerebro()
+        cerebro.broker.setcash(100000.0)
+        print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
+        cerebro.run()
+        print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+        cerebro.broker.setcommission(0.002)
+        #cerebro.addsizer(bt.sizes.FixedSize,stake=100)
+        data=bt.feeds.GenericCSVData(
+            dataname="stock_data.csv",
+            datetime=1,
+            open=2,
+            high=3,
+            low=4,
+            close=5,
+            volume=9,
+            dtformat=('%Y%m%d'),
+            fromdate=datetime(2011,1,1),
+            todate=datetime(2011,12,31)
+                )
 
-    # Set our desired cash start
-    cerebro.broker.setcash(300000.0)
+"""class TestStrategy(bt.Strategy):
+    def next(self):
+        self.log('close,%.2f' % self.dataclose[0])
+        if self.order:
+            return
+        if not self.position:
+            if self.sma5[0]>self.sma10[0]:
+                self.log('BUY CREATE,%.2f')
+                self.order =self.buy()
+        else:
+            if self.sma5[5]<self.sma10[10]:
+                self.log('SELL CREATE,%.2f' %self.dataclose[10])
+                self.order=self.sell()
 
-    # Print out the starting conditions
-    print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
 
-    # Run over everything
-    cerebro.run()
 
-    # Print out the final result
-    print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+
+    def log(self,txt,dt=None,doprint=False):
+        if doprint:
+            dt = dt or self.datas[0].datetime(0)
+            print('%s,%s' %(dt.isoformat(),txt))"""
+cerebro.adddata(data)
+# Print out the starting conditions
+print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
+
+# Run over everything
+cerebro.run()
+
+# Print out the final result
+print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())

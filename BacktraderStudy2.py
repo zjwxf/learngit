@@ -43,7 +43,7 @@ class Teststrategy(bt.Strategy):
             #0<-1<-2 close price go down for sequentially for 3 days
             if self.dataclose[0]<self.dataclose[-1]:
                 if self.dataclose[-1]<self.dataclose[-2]:
-                    self.log('BUY CREATE, %2f.' % self.dataclose[0])
+                    self.log('BUY CREATE, %.2f' % self.dataclose[0])
                     self.order =self.buy() #buy for which price?
         else:
             if len(self) >= (self.bar_executed + 5):

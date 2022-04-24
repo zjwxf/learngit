@@ -15,7 +15,7 @@ class TestInd(bt.Indicator):
 
     def __init__(self):
         self.lines.a = b = self.data.close - self.data.high
-        self.lines.b = btind.SMA(b, period=20)
+        self.lines.b = btind.SMA(b, period=100)
 
 
 class St(bt.Strategy):
@@ -29,6 +29,7 @@ class St(bt.Strategy):
         btind.Stochastic()
         btind.RSI()
         btind.MACD()
+        btind.BollingerBands()
         btind.CCI()
         TestInd().plotinfo.plot = False
 
@@ -126,7 +127,7 @@ def runstrat():
     cerebro.run(runonce=False, exactbars=args.save)
     if args.plot:
         cerebro.plot(style='bar')
-
+    cerebro.plot(iplot=True)
 
 def parse_args():
     parser = argparse.ArgumentParser(

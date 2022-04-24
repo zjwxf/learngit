@@ -3,10 +3,11 @@ import backtrader as bt
 import backtrader.feeds as btfeeds
 class SmaCross(bt.SignalStrategy):
     def __init__(self):
-        sma1, sma2 = bt.ind.SMA(period=10), bt.ind.SMA(period=30)
+        sma1, sma2 = bt.ind.SMA(period=5), bt.ind.SMA(period=50)
         crossover = bt.ind.CrossOver(sma1, sma2)
         self.signal_add(bt.SIGNAL_LONG, crossover)
 cerebro = bt.Cerebro()
+cerebro.broker.setcash(200000.0) # set the money
 cerebro.addstrategy(SmaCross)
 data = btfeeds.GenericCSVData(
     dataname='stock_data.csv',
@@ -17,7 +18,7 @@ data = btfeeds.GenericCSVData(
     datetime=1,
     open=2,
     high=3,
-    low=4,    
+    low=4,
     close=5,
     volume=9,
     openinterest=-1
@@ -26,7 +27,14 @@ cerebro.adddata(data)
 cerebro.run()
 cerebro.plot(iplot=False)
 
+# Print out the starting conditions
+print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
 
+# Run over everything
+cerebro.run()
+
+# Print out the final result
+print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
 
 
 

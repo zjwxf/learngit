@@ -5,6 +5,3 @@ pro = ts.pro_api(
 df = pro.daily(ts_code='000001.SZ', start_date='20110101',
                end_date='20210101').iloc[::-1]
 df.to_csv('stock_data.csv', index=False)
-
-
-

@@ -5,7 +5,7 @@ import os
 import backtrader.feeds as btfeeds
 
 
-"""class TestStrategy(bt.Strategy):
+class TestStrategy(bt.Strategy):
     params=(('maperiod',None),('printlog',False))
     def log(self,txt,dt=None,doprint=False):
         if self.params.printlog or doprint:
