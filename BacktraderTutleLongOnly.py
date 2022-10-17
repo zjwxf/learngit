@@ -59,8 +59,8 @@ class TurtleStrategy(bt.Strategy):
         self.buy_size = 0      
         self.buy_count = 0       
         # 海龟交易法则中的唐奇安通道和平均波幅ATR        
-        self.H_line = bt.indicators.Highest(self.data.high(-1), period=self.p.long_period)        
-        self.L_line = bt.indicators.Lowest(self.data.low(-1), period=self.p.short_period) 
+        self.H_line = bt.indicators.Highest(self.data.high(-1), period=self.p.long_period)        #
+        self.L_line = bt.indicators.Lowest(self.data.low(-1), period=self.p.short_period)         #
         self.M_line = (self.H_line+self.L_line)/2
         self.TR = bt.indicators.Max((self.data.high(0)- self.data.low(0)),\
                                     abs(self.data.close(-1)-self.data.high(0)), \
@@ -75,16 +75,18 @@ class TurtleStrategy(bt.Strategy):
             return        
         #入场：价格突破上轨线且空仓时        
         if self.buy_signal > 0 and self.buy_count == 0:                                 
-            self.buy_size = self.broker.getvalue() * 0.01 / self.ATR            
+            self.buy_size = self.broker.getvalue() * 0.01 / self.ATR   
+            self.N =self.ATR[0]         
             self.buy_size  = int(self.buy_size  / 100) * 100                             
-            self.sizer.p.stake = self.buy_size*0.1          #按ATR这种算法，无法加仓4次,所以*25%，缩小仓位1/4
+            self.sizer.p.stake = self.buy_size * 0.1         #0.1是缩小仓位为10%==或者等于10倍杠杆
             self.buy_count = 1            
             self.order = self.buy()        
         #加仓：价格上涨了买入价的0.5的ATR且加仓次数少于3次（含）   ， self.ATR[0]? 加仓应该与首仓一样？？     
-        elif self.data.close >self.buyprice+0.5*self.ATR[0] and self.buy_count > 0 and self.buy_count <=4:           
-            self.buy_size  = self.broker.getvalue() * 0.01/ self.ATR            
-            self.buy_size  = int(self.buy_size  / 100) * 100            
-            self.sizer.p.stake = self.buy_size *0.1        #按ATR这种算法，无法加仓4次,所以*25%，缩小仓位1/4
+        elif  self.buy_count > 0 and self.buy_count <=4 and self.data.close >self.buyprice + 0.5*self.N :   
+                    
+            #self.buy_size  = self.broker.getvalue() * 0.01/ self.ATR            
+            #self.buy_size  = int(self.buy_size  / 100) * 100            
+            #self.sizer.p.stake = self.buy_size         #0.1是缩小仓位为10%==或者等于10倍杠杆
             self.order = self.buy()           
             self.buy_count += 1        
         #离场：价格跌破下轨线且持仓时        
@@ -92,7 +94,7 @@ class TurtleStrategy(bt.Strategy):
             self.order = self.sell()            
             self.buy_count = 0        
         #止损：价格跌破买入价的2个ATR且持仓时        
-        elif self.data.close < (self.buyprice - 2*self.ATR[0]) and self.buy_count > 0:           
+        elif self.buy_count > 0 and self.data.close < (self.buyprice - 2*self.N) :           
             self.order = self.sell()
             self.buy_count = 0   
     #交易记录日志（默认不打印结果）
@@ -108,23 +110,25 @@ class TurtleStrategy(bt.Strategy):
         # 如果order为buy/sell executed,报告价格结果
         if order.status in [order.Completed]: 
             if order.isbuy():
+                o:bt.Order=order
                 
-                self.log(f'买入:\n价格:{order.executed.price},\
-                成本:{order.executed.value:.2f},\
-                手续费:{order.executed.comm:.2f}')
+                # self.log(f'买入:\n价格:{order.executed.price},\
+                # 成本:{order.executed.value:.2f},\
+                # 手续费:{order.executed.comm:.2f}')
                 self.buyprice = order.executed.price
                 self.buycomm = order.executed.comm
-                self.log(f'买入后总资金: {(self.broker.getvalue()-order.executed.value):.2f}')
-                self.log(self.broker.getposition(data))
+                # self.log(f'买入后总资金: {(self.broker.getvalue()-order.executed.value):.2f}')
+                # self.log(self.broker.getposition(data))
             else:
                 self.log(f'卖出:\n价格：{order.executed.price},\
+                size: {order.executed.size:.2f},\
                 成本: {order.executed.value:.2f},\
                 手续费{order.executed.comm:.2f}')
                 self.log(f'卖出后总资金: {(self.broker.getvalue()):.2f}')
             self.bar_executed = len(self) 
         # 如果指令取消/交易失败, 报告结果
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log('交易失败')
+            self.log(f'交易失败{order.status}')
         self.order = None
     #记录交易收益情况（可省略，默认不输出结果）？？？？？？？？
     def notify_trade(self,trade):
