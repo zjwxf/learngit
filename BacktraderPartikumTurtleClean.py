@@ -27,18 +27,27 @@ plt.rcParams['figure.edgecolor']='k'
 
 #新版tushare
 pro = ts.pro_api(token='0a9d3308245c51f14e45b0c6d9166ffcc4fbd13d3438222f99f675f7')
-#df = pro.daily(ts_code='000001.SZ', start_date='2019101', end_date='20210101').iloc[::-1]
+#原文tushare数据处理
+"""#df = pro.daily(ts_code='000001.SZ', start_date='2019101', end_date='20210101').iloc[::-1]
 df = pro.daily(ts_code = '000088.SZ',start_date = '2017101',end_date = '20220803', fields = ' trade_date, open, high, low, close, vol')[::-1]
 df.index=pd.to_datetime(df.trade_date)
 df['openinterest']=0
 #df.trade_date=pd.to_datetime(df.trade_date) #由于trade_date是字符串，BackTrader无法识别，需要转一下
 df=df[['trade_date','open','high','low','close','vol','openinterest']]
 dataframe=df
-print(dataframe.head())
+print(dataframe.head())"""
+#tushare指数要用到pro_bar
+df = ts.pro_bar(ts_code='399001.SZ' ,asset='I',start_date ='20100101', end_date='20221010').iloc[::-1]
+df.index=pd.to_datetime(df.trade_date)
+df['openinterest']=0
+#df.trade_date= pd.to_datetime(df.trade_date) #由于trade_date是字符串，BackTrader无法识别，需要转一下
+df=df[['trade_date','open','high','low','close','vol','openinterest']]
+dataframe=df
+print(dataframe)
 
 
-#编写海龟策略
-class TurtleStrategy(bt.Strategy):
+#编写海龟策略 无N值用了ATR[0], 非固定N值，每次买入信号计算当下N值==不是正确的方法 
+"""class TurtleStrategy(bt.Strategy):
 #默认参数
     params = (('long_period',20),
               ('short_period',10),  
@@ -55,8 +64,10 @@ class TurtleStrategy(bt.Strategy):
         self.M_line = (self.H_line+self.L_line)/2
         self.TR = bt.indicators.Max((self.data.high(0)- self.data.low(0)),\
                                     abs(self.data.close(-1)-self.data.high(0)), \
-                                    abs(self.data.close(-1)  - self.data.low(0)))        
-        self.ATR = bt.indicators.SimpleMovingAverage(self.TR, period=14)       
+                                    abs(self.data.close(-1)  - self.data.low(0)))   
+        #原文ATR=EMA（20）, 程序用了SMA， 对比结果差异很大                                 
+        self.ATR = bt.indicators.SimpleMovingAverage(self.TR, period=20)   
+        #self.ATR = bt.indicators.EMA(self.TR, period=20)      
         # 价格与上下轨线的交叉      
         self.buy_signal = bt.ind.CrossOver(self.data.close(0), self.H_line)        
         self.sell_signal = bt.ind.CrossOver(self.data.close(0), self.L_line)    
@@ -70,9 +81,9 @@ class TurtleStrategy(bt.Strategy):
             self.sizer.p.stake = self.buy_size             
             self.buy_count = 1            
             self.order = self.buy()        
-        #加仓：价格上涨了买入价的0.5的ATR且加仓次数少于3次（含）        
+        #加仓：价格上涨了买入价的0.5的ATR且加仓次数少于3次（含）   ， self.ATR[0]? 加仓应该与首仓一样？？     
         elif self.data.close >self.buyprice+0.5*self.ATR[0] and self.buy_count > 0 and self.buy_count <=4:           
-            self.buy_size  = self.broker.getvalue() * 0.01 / self.ATR            
+            self.buy_size  = self.broker.getvalue() * 0.01/ self.ATR            
             self.buy_size  = int(self.buy_size  / 100) * 100            
             self.sizer.p.stake = self.buy_size             
             self.order = self.buy()           
@@ -98,6 +109,7 @@ class TurtleStrategy(bt.Strategy):
         # 如果order为buy/sell executed,报告价格结果
         if order.status in [order.Completed]: 
             if order.isbuy():
+                
                 self.log(f'买入:\n价格:{order.executed.price},\
                 成本:{order.executed.value},\
                 手续费:{order.executed.comm}')
@@ -112,7 +124,101 @@ class TurtleStrategy(bt.Strategy):
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('交易失败')
         self.order = None
-    #记录交易收益情况（可省略，默认不输出结果）
+    #记录交易收益情况（可省略，默认不输出结果）？？？？？？？？
+    def notify_trade(self,trade):
+        if not trade.isclosed:
+            return
+        self.log(f'策略收益：\n毛收益 {trade.pnl:.2f}, 净收益 {trade.pnlcomm:.2f}')
+    def stop(self):
+        self.log(f'(组合线：{self.p.long_period},{self.p.short_period})； \
+        期末总资金: {self.broker.getvalue():.2f}', doprint=True)"""
+#编写海龟策略
+class TurtleStrategy(bt.Strategy):
+#默认参数
+    params = (('long_period',20),
+              ('short_period',10),  
+              ('printlog', False), )   
+    def __init__(self):        
+        self.order = None      
+        self.buyprice = 0      
+        self.buycomm = 0      
+        self.buy_size = 0      
+        self.buy_count = 0       
+        # 海龟交易法则中的唐奇安通道和平均波幅ATR        
+        self.H_line = bt.indicators.Highest(self.data.high(-1), period=self.p.long_period)       
+        self.L_line = bt.indicators.Lowest(self.data.low(-1), period=self.p.short_period)         
+        self.M_line = (self.H_line+self.L_line)/2
+        self.TR = bt.indicators.Max((self.data.high(0)- self.data.low(0)),\
+                                    abs(self.data.close(-1)-self.data.high(0)), \
+                                    abs(self.data.close(-1)  - self.data.low(0)))   
+        #period=14? atr应取？                                 
+        #self.ATR = bt.indicators.SimpleMovingAverage(self.TR, period=20)    
+        self.ATR = bt.indicators.EMA(self.TR, period=20)   
+        # 价格与上下轨线的交叉      
+        self.buy_signal = bt.ind.CrossOver(self.data.close(0), self.H_line)        
+        self.sell_signal = bt.ind.CrossOver(self.data.close(0), self.L_line)    
+    def next(self): 
+        if self.order:
+            return        
+        #入场：价格突破上轨线且空仓时        
+        if self.buy_signal > 0 and self.buy_count == 0:                                 
+            self.buy_size = self.broker.getvalue() * 0.01 / self.ATR 
+            #固定N值  
+            self.N =self.ATR[0]         
+            self.buy_size  = int(self.buy_size  / 100) * 100                             
+            self.sizer.p.stake = self.buy_size * 1        #0.1是缩小仓位为10%==或者等于10倍杠杆
+            self.buy_count = 1            
+            self.order = self.buy()        
+        #加仓：价格上涨了买入价的0.5的ATR且加仓次数少于3次（含）   ， self.ATR[0]? 加仓应该与首仓一样？？     
+        elif  self.buy_count > 0 and self.buy_count <=4 and self.data.close >self.buyprice + 0.5*self.N :   
+                    
+            #self.buy_size  = self.broker.getvalue() * 0.01/ self.ATR            
+            #self.buy_size  = int(self.buy_size  / 100) * 100            
+            #self.sizer.p.stake = self.buy_size         #0.1是缩小仓位为10%==或者等于10倍杠杆
+            self.order = self.buy()           
+            self.buy_count += 1        
+        #离场：价格跌破下轨线且持仓时        
+        elif self.sell_signal < 0 and self.buy_count > 0:            
+            self.order = self.sell()            
+            self.buy_count = 0        
+        #止损：价格跌破买入价的2个ATR且持仓时        
+        elif self.buy_count > 0 and self.data.close < (self.buyprice - 2*self.N) :           
+            self.order = self.sell()
+            self.buy_count = 0   
+    #交易记录日志（默认不打印结果）
+    def log(self, txt, dt=None,doprint=False):
+        if self.params.printlog or doprint:
+            dt = dt or self.datas[0].datetime.date(0)
+            print(f'{dt.isoformat()},{txt}')
+    #记录交易执行情况（默认不输出结果）
+    def notify_order(self, order):
+        # 如果order为submitted/accepted,返回空
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        # 如果order为buy/sell executed,报告价格结果
+        if order.status in [order.Completed]: 
+            if order.isbuy():
+                o:bt.Order=order
+                
+                # self.log(f'买入:\n价格:{order.executed.price},\
+                # 成本:{order.executed.value:.2f},\
+                # 手续费:{order.executed.comm:.2f}')
+                self.buyprice = order.executed.price
+                self.buycomm = order.executed.comm
+                # self.log(f'买入后总资金: {(self.broker.getvalue()-order.executed.value):.2f}')
+                # self.log(self.broker.getposition(data))
+            else:
+                self.log(f'卖出:\n价格：{order.executed.price},\
+                size: {order.executed.size:.2f},\
+                成本: {order.executed.value:.2f},\
+                手续费{order.executed.comm:.2f}')
+                self.log(f'卖出后总资金: {(self.broker.getvalue()):.2f}')
+            self.bar_executed = len(self) 
+        # 如果指令取消/交易失败, 报告结果
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log(f'交易失败{order.status}')
+        self.order = None
+    #记录交易收益情况（可省略，默认不输出结果）？？？？？？？？
     def notify_trade(self,trade):
         if not trade.isclosed:
             return
@@ -120,7 +226,6 @@ class TurtleStrategy(bt.Strategy):
     def stop(self):
         self.log(f'(组合线：{self.p.long_period},{self.p.short_period})； \
         期末总资金: {self.broker.getvalue():.2f}', doprint=True)
-
 #编写仓位管理函数
 class TradeSizer(bt.Sizer):
     params = (('stake', 1),)    
@@ -137,7 +242,7 @@ class TradeSizer(bt.Sizer):
 def main(df,long_list,short_list,best_long,best_short,startcash=1000000,com=0.001):
     #创建主控制器
     cerebro = bt.Cerebro()      
-    #导入策略参数寻优
+    #导入策略参数寻优 optstrategy!!! cerebro.optstrategy(Strategy,params,params)
     if long_list:
         cerebro.optstrategy(TurtleStrategy,long_period=long_list,short_period=short_list)    
         #将数据加载至回测系统
@@ -160,11 +265,13 @@ def main(df,long_list,short_list,best_long,best_short,startcash=1000000,com=0.00
         #broker设置资金、手续费
         cerebro.broker.setcash(startcash)
         cerebro.broker.setcommission(commission=com)
+        cerebro.addsizer(TradeSizer)
         #设置指标观察
         cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
         print('期初总资金: %.2f' % cerebro.broker.getvalue())
         cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')    
         print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
+        
         results = cerebro.run()
         print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
         cerebro.plot(volume=False)
@@ -221,8 +328,8 @@ class DailyReturnAnalyzer(Analyzer):
     
 #回测和参数调试
 long_list=range(20,30,5)  #20天到70天 ，步进5
-short_list=range(5,20,5)
+short_list=range(10,20,5)
 main(dataframe,long_list=long_list,short_list=short_list,best_long=None,best_short=None)
 
 #最优参数回测和画图 手动填写 long short 参数
-main(dataframe,long_list=None,short_list=None,best_long=20,best_short=15)
+main(dataframe,long_list=None,short_list=None,best_long=20,best_short=10)

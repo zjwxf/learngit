@@ -69,7 +69,7 @@ pf.create_simple_tear_sheet(returns,
                              turnover_denom='AGB',
                              header_rows=None)
 print(pf.create_simple_tear_sheet(returns) )# 与plt.show() 是一个方法，结果出一样的图    
-#plt.show()
+plt.show()
 
 """
 pf.create_perf_attrib_tear_sheet(returns,

@@ -15,7 +15,7 @@ class TestInd(bt.Indicator):
 
     def __init__(self):
         self.lines.a = b = self.data.close - self.data.high
-        self.lines.b = btind.SMA(b, period=100)
+        self.lines.b = btind.SMA(b, period=100)    #btind.SMA(data,period)
 
 
 class St(bt.Strategy):

@@ -6,6 +6,8 @@ import backtrader as bt
 import backtrader.feeds as btfeeds
 import sys
 import backtrader.indicators
+import tushare as ts
+import pandas as pd
 
 class TestStrategy(bt.Strategy):
     params = ( ('mpperiod', 60),) # parameter 'exitbars' is varliable 
@@ -75,8 +77,26 @@ class TestStrategy(bt.Strategy):
 if __name__=='__main__':
     cerebro =bt.Cerebro()
     cerebro.addstrategy(TestStrategy)
-    data = bt.feeds.GenericCSVData(
-        dataname= 'stock_data.csv',
+    pro = ts.pro_api(token='0a9d3308245c51f14e45b0c6d9166ffcc4fbd13d3438222f99f675f7')
+    df_stock_basic = pro.stock_basic()
+    df = pro.daily(ts_code='000001.SZ', start_date='20210101', end_date='20220101').iloc[::-1]
+    # 由于trade_date是字符串'20220202，BackTrader无法识别，转换为时间格式2022-02-02 00:00:00
+    df.trade_date = pd.to_datetime(df.trade_date)
+    data = btfeeds.PandasData(
+        dataname=df,
+        fromdate=datetime(2021, 1, 1),
+        todate=datetime(2022, 1, 1),
+        datetime='trade_date',
+        open='open',
+        high='high',
+        low='low',
+        close='close',
+        volume='vol',
+        openinterest=-1
+    )
+
+"""    data = bt.feeds.GenericCSVData(
+        dataname= 'd:/backtrader/stock_data.csv',
         fromdate=datetime(2011, 1, 1),
         todate=datetime(2011, 12, 31),
         nullvalue=0.0,
@@ -88,7 +108,7 @@ if __name__=='__main__':
         close=5,
         volume=9,
         openinterest=-1,
-    )
+    )"""
 cerebro.adddata(data)
 #self.sizer.setsizing(self.params.stake)
 cerebro.addsizer(bt.sizers.FixedSize,stake=4000)
@@ -97,5 +117,5 @@ cerebro.broker.setcommission(commission=0.001)
 print('Starting Protfolio Value: %.2f' % cerebro.broker.getvalue())
 cerebro.run()
 print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
-#cerebro.plot(iplot=None)
+cerebro.plot(iplot=None)
 

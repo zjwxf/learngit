@@ -66,7 +66,7 @@ if __name__=='__main__':
     cerebro =bt.Cerebro()
     cerebro.addstrategy(TestStrategy)
     data = bt.feeds.GenericCSVData(
-        dataname= 'stock_data.csv',
+        dataname= 'd:/backtrader/stock_data.csv',
         fromdate=datetime(2011, 1, 1),
         todate=datetime(2012, 12, 31),
         nullvalue=0.0,
@@ -87,5 +87,10 @@ cerebro.broker.setcommission(commission=0.001)
 print('Starting Protfolio Value: %.2f' % cerebro.broker.getvalue())
 cerebro.run()
 print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
-#cerebro.plot(iplot=None)
+cerebro.plot(iplot=None)
+
+
+
+
+
 

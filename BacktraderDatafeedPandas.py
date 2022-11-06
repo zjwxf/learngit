@@ -84,7 +84,7 @@ def runstrat():
         #j += 1
         df = pro.daily(ts_code = i, start_date = '20220501', end_date = '20220802', fields = 'ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount')
     #return  df(i)
-        return df 
+        return df    #无法向下传递，跳出循环
 
     # Get a pandas dataframe
     #datapath = ('../../datas/2006-day-001.txt')
@@ -108,6 +108,8 @@ def runstrat():
 
     # Pass it to the backtrader datafeed and add it to the cerebro
     data = bt.feeds.PandasData(dataname=dataframe)
+
+
 
     cerebro.adddata(data)
 

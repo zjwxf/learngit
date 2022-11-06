@@ -3,7 +3,8 @@ import backtrader as bt
 import sys
 import os
 import backtrader.feeds as btfeeds
-
+import tushare as ts
+import pandas as pd
 
 class TestStrategy(bt.Strategy):
     params=(('maperiod',None),('printlog',False))
@@ -50,7 +51,7 @@ class TestStrategy(bt.Strategy):
     def notify_trade(self, trade):
         if not trade.isclosed:
             return
-        self.log('OPERATION PROFIT, GROSS %.2f,NET%.2f' %(trade:pnl, trade.pnlcomm))
+        #self.log('OPERATION PROFIT, GROSS %.2f,NET%.2f' %(trade:pnl, trade.pnlcomm))
 
     def next(self):
         self.log('close,%.2f' %self.dataclose[0])
@@ -65,13 +66,29 @@ class TestStrategy(bt.Strategy):
                 self.log('SELL CREATE, %.2f' % self.dataclose[0])
                 self.order = self.sell()
     def stop(self):
-        self.log('(MA Period %2d) Ending Value %.2f' %(self.params.maperiod,self.broker.getvalue(),doprint=True)"""
-""""
+        self.log ('(MA Period %2d) Ending Value %.2f' % (self.params.maperiod,self.broker.getvalue()))
 if __name__ == '__main__':
     cerebro = bt.Cerebro()
     strats = cerebro.optstrategy(TestStrategy,maperiod=range(10,31))
-    data = bt.feeds.GenericCSVData(
-        dataname= 'stock_data.csv',
+    pro = ts.pro_api(token='0a9d3308245c51f14e45b0c6d9166ffcc4fbd13d3438222f99f675f7')
+    df_stock_basic = pro.stock_basic()
+    df = pro.daily(ts_code='000001.SZ', start_date='20210101', end_date='20220101').iloc[::-1]
+    # 由于trade_date是字符串'20220202，BackTrader无法识别，转换为时间格式2022-02-02 00:00:00
+    df.trade_date = pd.to_datetime(df.trade_date)
+    data = btfeeds.PandasData(
+        dataname=df,
+        fromdate=datetime(2021, 1, 1),
+        todate=datetime(2022, 1, 1),
+        datetime='trade_date',
+        open='open',
+        high='high',
+        low='low',
+        close='close',
+        volume='vol',
+        openinterest=-1
+    )
+    """data = bt.feeds.GenericCSVData(
+        dataname= 'd:/backtrader/stock_data.csv',
         fromdate=datetime(2011, 1, 1),
         todate=datetime(2011, 12, 31),
         nullvalue=0.0,
@@ -83,14 +100,13 @@ if __name__ == '__main__':
         close=5,
         volume=9,
         openinterest=-1,
-    )
+    )"""
 cerebro.adddata(data)
 cerebro.addsizer(bt.sizers.FixedSize,stake=4000)
 cerebro.broker.setcash(100000.0)
 cerebro.broker.setcommission(commission=0.001)
 print('Starting Protfolio Value: %.2f' % cerebro.broker.getvalue())
 cerebro.run(maxcpus=1)
-print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())"""
-
-
+print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
 print("%04d" % 5)
+#cerebro.plot(iplot=None)

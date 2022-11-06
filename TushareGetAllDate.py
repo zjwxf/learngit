@@ -11,7 +11,8 @@ def maintask():
 
     pool = pro.stock_basic(exchange = '',list_status = 'L',adj = 'qfq',fields = 'ts_code,symbol,name,area,industry,fullname,list_date, market,exchange,is_hs')
 
-    print(pool.head())
+    print(pool.ts_code.iloc[2663:2700])
+    
 
     print('获得上市股票总数：', len(pool)-1)
 
@@ -45,6 +46,7 @@ if __name__ == '__main__':
 #设置起始日期
 
     startdate = '20210101'
+
 
     enddate = '20210201'
 
